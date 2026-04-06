@@ -31,30 +31,21 @@ def save_feedback(feedback_data):
 def analyze_email():
     data = request.get_json()
 
-    # Header Analysis (includes domain reputation)
+   
     header_score, header_reasons = analyze_header(data.get('sender', ''), data.get('subject', ''))
     
-    # Get detailed domain analysis
     from utils.domain_reputation import domain_reputation
     domain_analysis = domain_reputation.comprehensive_domain_analysis(data.get('sender', ''))
-
-    # Body Analysis (original model)
     body_score, body_keywords = analyze_text(data.get('body', ''))
-
-    # BERT Analysis
     bert_analysis = bert_analyzer.comprehensive_analysis(
         f"{data.get('subject', '')} {data.get('body', '')}"
     )
 
-    # Feedback Learning Analysis
+
     feedback_score, feedback_reason = feedback_learner.predict_with_feedback_model(
         f"{data.get('subject', '')} {data.get('body', '')}"
     )
-
-    # Link Analysis
     link_score, link_reasons = check_links(data.get('links', []))
-
-    # Enhanced weighted score with BERT and feedback learning
     final_score = round(
         0.2 * header_score + 
         0.25 * body_score + 
@@ -64,13 +55,13 @@ def analyze_email():
     )
     
     if final_score > 0.8 and final_score <= 1.0:
-        verdict = "Phishing 🚨"
+        verdict = "Phishing "
     elif final_score < 0.8 and final_score >= 0.5:
-        verdict = "Suspicious ⚠️"
+        verdict = "Suspicious "
     elif final_score < 0.5 and final_score >= 0.0:
-        verdict = "Safe ✅"
+        verdict = "Safe "
     else:
-        verdict = "Unknown ❓"
+        verdict = "Unknown "
 
     response = {
         "header_score": header_score,
@@ -104,7 +95,6 @@ def analyze_email():
         "verdict": verdict
     }
 
-    # Add scan to dashboard
     scan_dashboard.add_scan_record(data, response)
 
     return jsonify(response)
@@ -123,13 +113,10 @@ def feedback():
     feedback_data = request.get_json()
     if not feedback_data:
         return jsonify({"error": "No feedback data provided"}), 400
-
     save_feedback(feedback_data)
-    
-    # Trigger model retraining if we have enough feedback
+
     feedback_stats = feedback_learner.get_feedback_stats()
     if feedback_stats["total_feedback"] >= 10 and feedback_stats["total_feedback"] % 5 == 0:
-        # Retrain model every 5 new feedback entries
         print("Retraining model with new feedback...")
         feedback_learner.train_model()
     
